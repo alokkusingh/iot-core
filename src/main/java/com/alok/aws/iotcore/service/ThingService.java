@@ -25,6 +25,14 @@ public class ThingService {
     private String thingAllowedPolicy;
 
     public void createThingAndRegisterCertificate(DeviceRegistrationRequest deviceRegistrationRequest) {
+
+        if (deviceRegistrationRequest == null
+                || deviceRegistrationRequest.getDeviceName() == null
+                || deviceRegistrationRequest.getCertificatePem() == null
+                || deviceRegistrationRequest.getCaCertificatePem() == null
+        )
+            throw new ThingCreationException("Request validation failed!");
+
         log.debug("Thing creation started, thing: {}", deviceRegistrationRequest.getDeviceName());
         createThing(deviceRegistrationRequest.getDeviceName());
         RegisterCertificateResponse registerCertificateResponse = registerCertificate(deviceRegistrationRequest);
@@ -46,7 +54,7 @@ public class ThingService {
             // treat this as success
             log.debug("Thing already exists, thing: {}", thingAllowedPolicy);
         } catch (RuntimeException rte) {
-            log.error("Thing creation failed, thing: {}", thingName);
+            log.error("Thing creation failed, thing: {}, error: {}, cause: {}", thingName, rte.getMessage(), rte.getCause());
             throw new ThingCreationException("Thing Creation Failed!", rte);
         }
     }

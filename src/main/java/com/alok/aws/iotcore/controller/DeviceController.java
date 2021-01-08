@@ -22,8 +22,7 @@ public class DeviceController {
         try {
             thingService.createThingAndRegisterCertificate(deviceRegistrationRequest);
         } catch (RuntimeException rte) {
-
-            log.error("Thing creation failed, error: {}, " + rte.getMessage(), rte.getStackTrace());
+            log.error("Thing creation failed, error: {}, cause: {}", rte.getMessage(), rte.getCause());
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
                     .build();
         }
