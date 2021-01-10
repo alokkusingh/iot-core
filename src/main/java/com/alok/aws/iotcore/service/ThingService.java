@@ -76,7 +76,7 @@ public class ThingService {
                     .build());
         } catch (ResourceAlreadyExistsException alreadyExists) {
             // treat this as success if DB has cert id
-            log.debug("Certificate already exists, thing: {}", thingAllowedPolicy);
+            log.debug("Certificate already exists, thing: {}", deviceRegistrationRequest.getDeviceName());
             Device device = deviceRepository.findOneByDeviceName(deviceRegistrationRequest.getDeviceName());
             if (device != null)
                 registerCertificateResponse = RegisterCertificateResponse.builder()
