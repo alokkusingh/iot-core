@@ -33,12 +33,12 @@ public class ThingService {
         )
             throw new ThingCreationException("Request validation failed!");
 
-        log.debug("Thing creation started, thing: {}", deviceRegistrationRequest.getDeviceName());
+        log.info("Thing creation started, thing: {}", deviceRegistrationRequest.getDeviceName());
         createThing(deviceRegistrationRequest.getDeviceName());
         RegisterCertificateResponse registerCertificateResponse = registerCertificate(deviceRegistrationRequest);
         attachPolicyToCertificate(deviceRegistrationRequest.getDeviceName(), registerCertificateResponse);
         attachThingCertificate(deviceRegistrationRequest.getDeviceName(), registerCertificateResponse);
-        log.debug("Thing creation completed, thing: {}", deviceRegistrationRequest.getDeviceName());
+        log.info("Thing creation completed, thing: {}, certId: {}", deviceRegistrationRequest.getDeviceName(), registerCertificateResponse.certificateId());
     }
 
     private void createThing(String thingName) {
@@ -69,14 +69,11 @@ public class ThingService {
                     .setAsActive(true)
                     .build());
 
-            deviceRepository.save(
-                    Device.builder()
-                            .deviceName(deviceRegistrationRequest.getDeviceName())
-                            .awsDeviceCertId(registerCertificateResponse.certificateId())
-                            .awsDeviceCertArn(registerCertificateResponse.certificateArn())
-                            .build()
-            );
-
+            deviceRepository.save( Device.builder()
+                    .deviceName(deviceRegistrationRequest.getDeviceName())
+                    .awsDeviceCertId(registerCertificateResponse.certificateId())
+                    .awsDeviceCertArn(registerCertificateResponse.certificateArn())
+                    .build());
         } catch (ResourceAlreadyExistsException alreadyExists) {
             // treat this as success if DB has cert id
             log.debug("Certificate already exists, thing: {}", thingAllowedPolicy);
@@ -125,22 +122,30 @@ public class ThingService {
     }
 
     private void deleteCertificate(String certificateId) {
+        updateCertificateStatus(certificateId, "INACTIVE");
+        log.debug("Deleting certificate, certId: {}", certificateId);
         try {
-             iotClient.updateCertificate(
-                UpdateCertificateRequest.builder()
-                    .certificateId(certificateId)
-                    .newStatus("INACTIVE")
-                    .build());
-
               iotClient.deleteCertificate(
                 DeleteCertificateRequest.builder()
                         .certificateId(certificateId)
                         .forceDelete(true)
-                        .build()
-             );
+                        .build());
         } catch (RuntimeException rte) {
             log.error("Certificate deletion failed, certId: {}", certificateId);
-            throw new ThingCreationException("Policy attachment Failed!", rte);
+            throw new ThingCreationException("Certificate deletion failed!", rte);
+        }
+    }
+
+    private void updateCertificateStatus(String certificateId, String status) {
+        log.debug("Updating certificate status, certId: {}, status: {}", certificateId, status);
+        try {
+            iotClient.updateCertificate( UpdateCertificateRequest.builder()
+                    .certificateId(certificateId)
+                    .newStatus(status)
+                    .build());
+        } catch (RuntimeException rte) {
+            log.error("Updating Certificate status failed, certId: {}, status: {}", certificateId, status);
+            throw new ThingCreationException("Updating certificate status failed!", rte);
         }
     }
 }
