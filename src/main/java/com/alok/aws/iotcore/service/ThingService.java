@@ -43,7 +43,7 @@ public class ThingService {
 
     private void createThing(String thingName) {
 
-        log.debug("Creating thing: {}", thingAllowedPolicy);
+        log.debug("Creating thing: {}", thingName);
         try {
             iotClient.createThing(
                     CreateThingRequest.builder()
@@ -52,7 +52,7 @@ public class ThingService {
             );
         } catch (ResourceAlreadyExistsException alreadyExists) {
             // treat this as success
-            log.debug("Thing already exists, thing: {}", thingAllowedPolicy);
+            log.debug("Thing already exists, thing: {}", thingName);
         } catch (RuntimeException rte) {
             log.error("Thing creation failed, thing: {}, error: {}, cause: {}", thingName, rte.getMessage(), rte.getCause());
             throw new ThingCreationException("Thing Creation Failed!", rte);
