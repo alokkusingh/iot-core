@@ -1,5 +1,7 @@
 package com.alok.aws.iotcore.controller;
 
+import com.alok.aws.iotcore.exception.CertificateDoesntExistException;
+import com.alok.aws.iotcore.exception.ThingDoesntExistException;
 import com.alok.aws.iotcore.model.DeviceRegistrationRequest;
 import com.alok.aws.iotcore.service.ThingService;
 import lombok.extern.slf4j.Slf4j;
@@ -23,11 +25,33 @@ public class DeviceController {
             thingService.createThingAndRegisterCertificate(deviceRegistrationRequest);
         } catch (RuntimeException rte) {
             log.error("Thing creation failed, error: {}, cause: {}", rte.getMessage(), rte.getCause());
-            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+            return ResponseEntity.status(HttpStatus.FAILED_DEPENDENCY)
                     .build();
         }
 
         return ResponseEntity.status(HttpStatus.CREATED)
+                .build();
+    }
+
+    @PutMapping(value = "/{thingName}")
+    public ResponseEntity<Void> updateDeviceCertState(@PathVariable("thingName") String thingName, @RequestParam("newStatus") String newStatus) {
+
+        try {
+            thingService.updateThingCertStatus(thingName, newStatus);
+        } catch (ThingDoesntExistException rte) {
+            log.error("Thing creation failed, error: {}, cause: {}", rte.getMessage(), rte.getCause());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .build();
+        } catch (CertificateDoesntExistException rte) {
+            log.error("Thing creation failed, error: {}, cause: {}", rte.getMessage(), rte.getCause());
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED)
+                    .build();
+        } catch (RuntimeException rte) {
+            log.error("Thing creation failed, error: {}, cause: {}", rte.getMessage(), rte.getCause());
+            return ResponseEntity.status(HttpStatus.FAILED_DEPENDENCY)
+                    .build();
+        }
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .build();
     }
 

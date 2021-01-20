@@ -1,7 +1,10 @@
 package com.alok.aws.iotcore.service;
 
 import com.alok.aws.iotcore.entity.Device;
+import com.alok.aws.iotcore.exception.CertificateDoesntExistException;
 import com.alok.aws.iotcore.exception.ThingCreationException;
+import com.alok.aws.iotcore.exception.ThingDoesntExistException;
+import com.alok.aws.iotcore.exception.ThingUpdateException;
 import com.alok.aws.iotcore.model.DeviceRegistrationRequest;
 import com.alok.aws.iotcore.repository.DeviceRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -121,6 +124,19 @@ public class ThingService {
         }
     }
 
+    private void detachThingCertificate(String deviceName, String certificateArn) {
+        log.debug("Detaching certificate from thing: {}, certArn: {}", deviceName, certificateArn);
+        try {
+            iotClient.detachThingPrincipal(DetachThingPrincipalRequest.builder()
+                    .thingName(deviceName)
+                    .principal(certificateArn)
+                    .build());
+        } catch (RuntimeException rte) {
+            log.error("Detaching certificate from thing failed, deleting certificate, thing: {}, certArn: {}", deviceName, certificateArn);
+            throw new ThingCreationException("Detaching certificate from thing Failed!", rte);
+        }
+    }
+
     private void deleteCertificate(String certificateId) {
         updateCertificateStatus(certificateId, "INACTIVE");
         log.debug("Deleting certificate, certId: {}", certificateId);
@@ -147,5 +163,43 @@ public class ThingService {
             log.error("Updating Certificate status failed, certId: {}, status: {}", certificateId, status);
             throw new ThingCreationException("Updating certificate status failed!", rte);
         }
+    }
+
+    public void updateThingCertStatus(String thingName, String newStatus) {
+        String certificateArn = getCertificateArn(thingName);
+        updateCertificateStatus(
+                extractCertIdFromArn(certificateArn),
+                newStatus
+        );
+
+        if ("REVOKED".equals(newStatus))
+            detachThingCertificate(thingName, certificateArn);
+    }
+
+    private String getCertificateArn(String thingName) {
+        log.debug("Get certificate id for thing: {}", thingName);
+        try {
+            ListThingPrincipalsResponse thingPrincipals = iotClient.listThingPrincipals(ListThingPrincipalsRequest.builder()
+                    .thingName(thingName)
+                    .build());
+            if (!thingPrincipals.hasPrincipals()) {
+                log.error("Thing doesn't have principal, thing: {}", thingName);
+                throw new CertificateDoesntExistException("hing doesn't have principal!");
+            }
+
+            // Assuming thing has only one principal any time - during revoke the principal was detached
+            return thingPrincipals.principals().get(0);
+
+        } catch (ResourceNotFoundException rnf) {
+            log.error("Thing doesn't exist!, thing: {}", thingName);
+            throw new ThingDoesntExistException("Thing doesn't exist!", rnf);
+        } catch (RuntimeException rte) {
+            log.error("Listing thing principals failed, thing: {}", thingName);
+            throw new ThingUpdateException("List Thing principals failed!", rte);
+        }
+    }
+
+    private String extractCertIdFromArn(String certArn) {
+        return certArn.split("/")[1];
     }
 }
