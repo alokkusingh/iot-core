@@ -10,8 +10,6 @@ pipeline {
         DOCKER_CERT_PATH = "/Users/aloksingh/.docker/machine/machines/default"
         DOCKER_MACHINE_NAME = "default"
         ENV_NAME = getEnvName(BRANCH)
-        AWS_CLI_KEY = getAwsCliKey(BRANCH)
-        AWS_CLI_SECRET = getAwsCliSecret(BRANCH)
         //Use Pipeline Utility Steps plugin to read information from pom.xml into env variables - pipeline-utility-steps plugin
         ARTIFACT = readMavenPom().getArtifactId()
         VERSION = readMavenPom().getVersion()
@@ -50,9 +48,9 @@ pipeline {
                 echo "Building ${ARTIFACT} - ${VERSION} - ${ENV_NAME}"
                 script {
                     if (BRANCH == 'master') {
-                        sh "docker build -t ${DOCKER_REGISTRY}/${ARTIFACT}:latest -t ${DOCKER_REGISTRY}/${ARTIFACT}:${VERSION} --build-arg JAR_FILE=target/${ARTIFACT}-${VERSION}.jar --build-arg ENV_NAME=${ENV_NAME} ."
+                        sh "docker build -t ${DOCKER_REGISTRY}/${ARTIFACT}:latest -t ${DOCKER_REGISTRY}/${ARTIFACT}:${VERSION} --build-arg JAR_FILE=target/${ARTIFACT}-${VERSION}.jar ."
                     } else if (BRANCH == 'dev') {
-                        sh "docker build -t ${DOCKER_REGISTRY}/${ARTIFACT}-dev:latest -t ${DOCKER_REGISTRY}/${ARTIFACT}-dev:${VERSION} --build-arg JAR_FILE=target/${ARTIFACT}-${VERSION}.jar --build-arg ENV_NAME=${ENV_NAME} ."
+                        sh "docker build -t ${DOCKER_REGISTRY}/${ARTIFACT}-dev:latest -t ${DOCKER_REGISTRY}/${ARTIFACT}-dev:${VERSION} --build-arg JAR_FILE=target/${ARTIFACT}-${VERSION}.jar ."
                     } else {
                         echo "Don't know how to create image for ${env.GIT_BRANCH} branch"
                     }
