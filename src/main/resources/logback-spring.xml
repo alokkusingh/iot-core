@@ -29,9 +29,11 @@
             </timeBasedFileNamingAndTriggeringPolicy>
         </rollingPolicy>
     </appender>
+
     <!-- LOG everything at warn level -->
     <root level="warn">
         <appender-ref ref="RollingFile"/>
+        <appender-ref ref="Console"/>
     </root>
     <logger name="org.springframework.boot.StartupInfoLogger"
             level="trace" additivity="false">
@@ -40,5 +42,6 @@
     </logger>
     <logger name="com.alok" level="debug" additivity="false">
         <appender-ref ref="RollingFile"/>
+        <appender-ref ref="Console"/>
     </logger>
 </configuration>
