@@ -29,6 +29,8 @@ public class ThingService {
 
     public void createThingAndRegisterCertificate(DeviceRegistrationRequest deviceRegistrationRequest) {
 
+        // requires AWSIoTConfigAccess policy to ecsTaskExecutionRole
+
         if (deviceRegistrationRequest == null
                 || deviceRegistrationRequest.getDeviceName() == null
                 || deviceRegistrationRequest.getCertificatePem() == null
