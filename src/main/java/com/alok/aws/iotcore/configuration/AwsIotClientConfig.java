@@ -9,18 +9,10 @@ import software.amazon.awssdk.services.iot.IotClient;
 @Slf4j
 public class AwsIotClientConfig {
 
-    //@Value("${aws.region:ap-south-1}")
-    //private String awsRegion;
-
-    /*@Value("${aws.iot-core-accessKey:test}")
-    private String awsAccessKey;
-
-    @Value("${aws.iot-core-secret:test}")
-    private String awsSecret;*/
-
     @Bean
     public IotClient iotClientConfigBean() {
         //return IotClient.create();
+        System.out.println("Current Region: " + System.getenv("AWS_REGION"));
         return IotClient.builder()
                 //.region(Region.of(awsRegion))
                // .credentialsProvider(awsCredentialsProvider())
