@@ -19,7 +19,10 @@ import software.amazon.awssdk.services.iot.model.*;
 public class ThingService {
 
     @Autowired
-    private IotClient iotClient;
+    private IotClient currentRegionIotClient;
+
+    @Autowired
+    private IotClient otherRegionIotClient;
 
     @Autowired
     private DeviceRepository deviceRepository;
@@ -27,7 +30,15 @@ public class ThingService {
     @Value("${aws.iot.thing.policy.allowed}")
     private String thingAllowedPolicy;
 
-    public void createThingAndRegisterCertificate(DeviceRegistrationRequest deviceRegistrationRequest) {
+    public void createThingAndRegisterCertificateCurrentRegion(DeviceRegistrationRequest deviceRegistrationRequest) {
+        createThingAndRegisterCertificate(deviceRegistrationRequest, currentRegionIotClient);
+    }
+
+    public void createThingAndRegisterCertificateOtherRegion(DeviceRegistrationRequest deviceRegistrationRequest) {
+        createThingAndRegisterCertificate(deviceRegistrationRequest, otherRegionIotClient);
+    }
+
+    private void createThingAndRegisterCertificate(DeviceRegistrationRequest deviceRegistrationRequest, IotClient iotClient) {
 
         // requires AWSIoTConfigAccess policy to ecsTaskExecutionRole
 
@@ -39,14 +50,14 @@ public class ThingService {
             throw new ThingCreationException("Request validation failed!");
 
         log.info("Thing creation started, thing: {}", deviceRegistrationRequest.getDeviceName());
-        createThing(deviceRegistrationRequest.getDeviceName());
-        RegisterCertificateResponse registerCertificateResponse = registerCertificate(deviceRegistrationRequest);
-        attachPolicyToCertificate(deviceRegistrationRequest.getDeviceName(), registerCertificateResponse);
-        attachThingCertificate(deviceRegistrationRequest.getDeviceName(), registerCertificateResponse);
-        log.info("Thing creation completed, thing: {}, certId: {}", deviceRegistrationRequest.getDeviceName(), registerCertificateResponse.certificateId());
+        createThing(deviceRegistrationRequest.getDeviceName(), iotClient);
+        RegisterCertificateResponse registerCertificateResponse = registerCertificate(deviceRegistrationRequest, iotClient);
+        attachPolicyToCertificate(deviceRegistrationRequest.getDeviceName(), registerCertificateResponse, iotClient);
+        attachThingCertificate(deviceRegistrationRequest.getDeviceName(), registerCertificateResponse, iotClient);
+        log.info("Thing creation completed, thing: {}, certId: {}", deviceRegistrationRequest.getDeviceName(), registerCertificateResponse.certificateId(), iotClient);
     }
 
-    private void createThing(String thingName) {
+    private void createThing(String thingName, IotClient iotClient) {
 
         log.debug("Creating thing: {}", thingName);
         try {
@@ -64,7 +75,7 @@ public class ThingService {
         }
     }
 
-    private RegisterCertificateResponse registerCertificate(DeviceRegistrationRequest deviceRegistrationRequest) {
+    private RegisterCertificateResponse registerCertificate(DeviceRegistrationRequest deviceRegistrationRequest, IotClient iotClient) {
         log.debug("Creating certificate for thing: {}", deviceRegistrationRequest.getDeviceName());
         RegisterCertificateResponse registerCertificateResponse = null;
         try {
@@ -98,7 +109,7 @@ public class ThingService {
         return registerCertificateResponse;
     }
 
-    private void attachPolicyToCertificate(String deviceName, RegisterCertificateResponse registerCertificateResponse) {
+    private void attachPolicyToCertificate(String deviceName, RegisterCertificateResponse registerCertificateResponse, IotClient iotClient) {
         log.debug("Attaching policy to certificate, thing: {}, certId: {}, policy: {}", deviceName, registerCertificateResponse.certificateId(), thingAllowedPolicy);
         try {
             iotClient.attachPolicy(AttachPolicyRequest.builder()
@@ -107,12 +118,12 @@ public class ThingService {
                     .build());
         } catch (RuntimeException rte) {
             log.error("Attaching policy to thing failed, deleting certificate, thing: {}, certId: {}", deviceName, registerCertificateResponse.certificateId());
-            deleteCertificate(registerCertificateResponse.certificateId());
+            deleteCertificate(registerCertificateResponse.certificateId(), iotClient);
             throw new ThingCreationException("Policy attachment Failed!", rte);
         }
     }
 
-    private void attachThingCertificate(String deviceName, RegisterCertificateResponse registerCertificateResponse) {
+    private void attachThingCertificate(String deviceName, RegisterCertificateResponse registerCertificateResponse, IotClient iotClient) {
         log.debug("Attaching certificate to thing: {}, certId: {}", deviceName, registerCertificateResponse.certificateId());
         try {
             iotClient.attachThingPrincipal(AttachThingPrincipalRequest.builder()
@@ -121,12 +132,12 @@ public class ThingService {
                     .build());
         } catch (RuntimeException rte) {
             log.error("Attaching certificate to thing failed, deleting certificate, thing: {}, certId: {}", deviceName, registerCertificateResponse.certificateId());
-            deleteCertificate(registerCertificateResponse.certificateId());
+            deleteCertificate(registerCertificateResponse.certificateId(), iotClient);
             throw new ThingCreationException("Certificate attachment Failed!", rte);
         }
     }
 
-    private void detachThingCertificate(String deviceName, String certificateArn) {
+    private void detachThingCertificate(String deviceName, String certificateArn, IotClient iotClient) {
         log.debug("Detaching certificate from thing: {}, certArn: {}", deviceName, certificateArn);
         try {
             iotClient.detachThingPrincipal(DetachThingPrincipalRequest.builder()
@@ -139,8 +150,8 @@ public class ThingService {
         }
     }
 
-    private void deleteCertificate(String certificateId) {
-        updateCertificateStatus(certificateId, "INACTIVE");
+    private void deleteCertificate(String certificateId, IotClient iotClient) {
+        updateCertificateStatus(certificateId, "INACTIVE", iotClient);
         log.debug("Deleting certificate, certId: {}", certificateId);
         try {
               iotClient.deleteCertificate(
@@ -154,7 +165,7 @@ public class ThingService {
         }
     }
 
-    private void updateCertificateStatus(String certificateId, String status) {
+    private void updateCertificateStatus(String certificateId, String status, IotClient iotClient) {
         log.debug("Updating certificate status, certId: {}, status: {}", certificateId, status);
         try {
             iotClient.updateCertificate( UpdateCertificateRequest.builder()
@@ -167,18 +178,27 @@ public class ThingService {
         }
     }
 
-    public void updateThingCertStatus(String thingName, String newStatus) {
-        String certificateArn = getCertificateArn(thingName);
+    public void updateThingCertStatusCurrentRegion(String thingName, String newStatus) {
+        updateThingCertStatus(thingName, newStatus, currentRegionIotClient);
+    }
+
+    public void updateThingCertStatusOtherRegion(String thingName, String newStatus) {
+        updateThingCertStatus(thingName, newStatus, otherRegionIotClient);
+    }
+
+    private void updateThingCertStatus(String thingName, String newStatus, IotClient iotClient) {
+        String certificateArn = getCertificateArn(thingName, iotClient);
         updateCertificateStatus(
                 extractCertIdFromArn(certificateArn),
-                newStatus
+                newStatus,
+                iotClient
         );
 
         if ("REVOKED".equals(newStatus))
-            detachThingCertificate(thingName, certificateArn);
+            detachThingCertificate(thingName, certificateArn, iotClient);
     }
 
-    private String getCertificateArn(String thingName) {
+    private String getCertificateArn(String thingName, IotClient iotClient) {
         log.debug("Get certificate id for thing: {}", thingName);
         try {
             ListThingPrincipalsResponse thingPrincipals = iotClient.listThingPrincipals(ListThingPrincipalsRequest.builder()

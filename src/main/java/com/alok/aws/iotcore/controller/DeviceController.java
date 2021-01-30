@@ -22,7 +22,8 @@ public class DeviceController {
     public ResponseEntity<String> registerDevice(@RequestBody DeviceRegistrationRequest deviceRegistrationRequest) {
 
         try {
-            thingService.createThingAndRegisterCertificate(deviceRegistrationRequest);
+            thingService.createThingAndRegisterCertificateCurrentRegion(deviceRegistrationRequest);
+            thingService.createThingAndRegisterCertificateOtherRegion(deviceRegistrationRequest);
         } catch (RuntimeException rte) {
             log.error("Thing creation failed, error: {}, cause: {}", rte.getMessage(), rte.getCause());
             return ResponseEntity.status(HttpStatus.FAILED_DEPENDENCY)
@@ -37,7 +38,8 @@ public class DeviceController {
     public ResponseEntity<Void> updateDeviceCertState(@PathVariable("thingName") String thingName, @RequestParam("newStatus") String newStatus) {
 
         try {
-            thingService.updateThingCertStatus(thingName, newStatus);
+            thingService.updateThingCertStatusCurrentRegion(thingName, newStatus);
+            thingService.updateThingCertStatusOtherRegion(thingName, newStatus);
         } catch (ThingDoesntExistException rte) {
             log.error("Thing creation failed, error: {}, cause: {}", rte.getMessage(), rte.getCause());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

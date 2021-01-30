@@ -3,6 +3,7 @@ package com.alok.aws.iotcore.configuration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.iot.IotClient;
 
 @Configuration
@@ -10,13 +11,25 @@ import software.amazon.awssdk.services.iot.IotClient;
 public class AwsIotClientConfig {
 
     @Bean
-    public IotClient iotClientConfigBean() {
-        //return IotClient.create();
+    public IotClient currentRegionIotClient() {
         System.out.println("Current Region: " + System.getenv("AWS_REGION"));
         return IotClient.builder()
-                //.region(Region.of(awsRegion))
-               // .credentialsProvider(awsCredentialsProvider())
                 .build();
+    }
+
+    @Bean
+    public IotClient otherRegionIotClient() {
+        System.out.println("Current Region: " + System.getenv("AWS_REGION"));
+        return IotClient.builder()
+                .region(Region.of(getOtherRegion()))
+                .build();
+    }
+
+    private String getOtherRegion() {
+       if ("ap-south-1".equals(System.getenv("AWS_REGION")))
+           return "ap-southeast-1";
+
+       return "ap-south-1";
     }
 
     /*@Bean
